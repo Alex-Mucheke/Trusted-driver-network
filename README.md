@@ -1,5 +1,7 @@
 # Trusted Driver Network
 
+[![CI](https://github.com/Alex-Mucheke/Trusted-driver-network/actions/workflows/ci.yml/badge.svg)](https://github.com/Alex-Mucheke/Trusted-driver-network/actions/workflows/ci.yml)
+
 A relationship-first transport platform for Kenya, built from the *Platform Blueprint* and *Technical Architecture Guide*.
 Customers book drivers they already trust. When that driver is busy they can refer a verified colleague, **who is only assigned after the customer approves**.
 
@@ -39,6 +41,30 @@ Demo logins after seeding (password `Password123!`): `customer@example.com`, `al
 Admin: `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `.env`.
 
 Try the golden flow: sign in as the customer → request a ride from Alice → sign in as Alice (another browser) → **Refer to a colleague** → Bob → Bob accepts (dashboard) → customer approves → Bob progresses the trip → customer sees live tracking.
+
+## Run everything in Docker
+
+One command starts PostgreSQL, the API (migrations are applied on start) and the web app behind nginx:
+
+```bash
+JWT_SECRET=$(openssl rand -hex 32) MPESA_CALLBACK_SECRET=$(openssl rand -hex 16) ADMIN_PASSWORD='choose-one' \
+  docker compose -f docker-compose.yml -f docker-compose.full.yml up --build
+```
+
+Open http://localhost:8080. Optional demo data:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.full.yml exec -e SEED_DEMO=true api npx ts-node prisma/seed.ts
+```
+
+The compose file runs the API with `NODE_ENV=development` because it serves plain http on localhost. Behind HTTPS, set `NODE_ENV=production` (cookies become `Secure`) and `TRUST_PROXY` to match your proxy so rate limits apply per client.
+
+## Health, API docs and CI
+
+- `GET /api/health` is a liveness probe; `GET /api/health/ready` also checks the database (use it for readiness).
+- Interactive API docs live at `/api/docs`. They are on by default outside production; set `SWAGGER_ENABLED=true` to expose them in production.
+- GitHub Actions runs on every PR: ESLint, Prettier check, typecheck, backend tests, both builds and both Docker images.
+- Locally, in `backend/` or `frontend/`: `npm run lint`, `npm run format` (or `format:check`), and in `backend/` `npm run typecheck` and `npm test`.
 
 ## What is implemented (MVP scope from the guide)
 
