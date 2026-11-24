@@ -1,5 +1,9 @@
 import {
-  BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException,
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { BookingState, Prisma } from '@prisma/client';
@@ -9,7 +13,11 @@ import { EligibilityService } from '../drivers/eligibility.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
-  BookingStateName, canTransition, CUSTOMER_CANCELLABLE, DRIVER_CANCELLABLE, DRIVER_PROGRESS_STATES,
+  BookingStateName,
+  canTransition,
+  CUSTOMER_CANCELLABLE,
+  DRIVER_CANCELLABLE,
+  DRIVER_PROGRESS_STATES,
 } from './booking-state';
 import { CreateBookingDto } from './bookings.dto';
 
@@ -22,7 +30,10 @@ const driverPublic = {
     driverProfile: {
       select: {
         photoUrl: true,
-        vehicles: { where: { active: true }, select: { plate: true, type: true, make: true, model: true, color: true, capacity: true } },
+        vehicles: {
+          where: { active: true },
+          select: { plate: true, type: true, make: true, model: true, color: true, capacity: true },
+        },
       },
     },
   },
@@ -50,7 +61,8 @@ export class BookingsService {
     const conn = await this.prisma.customerDriverConnection.findUnique({
       where: { customerId_driverId: { customerId, driverId: dto.driverId } },
     });
-    if (!conn || conn.status !== 'ACTIVE') throw new ForbiddenException('Connect with this driver before booking');
+    if (!conn || conn.status !== 'ACTIVE')
+      throw new ForbiddenException('Connect with this driver before booking');
 
     const scheduledAt = dto.scheduledAt ? new Date(dto.scheduledAt) : null;
     if (scheduledAt && scheduledAt.getTime() < Date.now() + 10 * 60 * 1000) {
@@ -71,7 +83,12 @@ export class BookingsService {
       throw new BadRequestException('This driver does not offer rides');
     }
 
-    const distanceKm = haversineKm(dto.pickup.lat, dto.pickup.lng, dto.dropoff.lat, dto.dropoff.lng);
+    const distanceKm = haversineKm(
+      dto.pickup.lat,
+      dto.pickup.lng,
+      dto.dropoff.lat,
+      dto.dropoff.lng,
+    );
     const quote = estimateFare(distanceKm); // client-supplied prices are never trusted
     const expiresAt = scheduledAt ?? new Date(Date.now() + REQUEST_TTL_MIN() * 60 * 1000);
 
@@ -89,8 +106,12 @@ export class BookingsService {
           expiresAt,
           rideDetails: {
             create: {
-              pickupAddress: dto.pickup.address, pickupLat: dto.pickup.lat, pickupLng: dto.pickup.lng,
-              dropoffAddress: dto.dropoff.address, dropoffLat: dto.dropoff.lat, dropoffLng: dto.dropoff.lng,
+              pickupAddress: dto.pickup.address,
+              pickupLat: dto.pickup.lat,
+              pickupLng: dto.pickup.lng,
+              dropoffAddress: dto.dropoff.address,
+              dropoffLat: dto.dropoff.lat,
+              dropoffLng: dto.dropoff.lng,
               distanceKm: Math.round(distanceKm * 10) / 10,
             },
           },
@@ -100,7 +121,13 @@ export class BookingsService {
       return b;
     });
 
-    await this.notifications.notify(dto.driverId, 'BOOKING_REQUESTED', 'New ride request', `Estimated fare KES ${quote}.`, { bookingId: booking.id });
+    await this.notifications.notify(
+      dto.driverId,
+      'BOOKING_REQUESTED',
+      'New ride request',
+      `Estimated fare KES ${quote}.`,
+      { bookingId: booking.id },
+    );
     this.notifications.bookingChanged([customerId, dto.driverId], booking.id, 'REQUESTED');
     return this.get(booking.id, { id: customerId, roles: ['CUSTOMER'] });
   }
@@ -110,7 +137,11 @@ export class BookingsService {
   async list(user: AuthUser, state?: string) {
     const rows = await this.prisma.booking.findMany({
       where: {
-        OR: [{ customerId: user.id }, { requestedDriverId: user.id }, { assignedDriverId: user.id }],
+        OR: [
+          { customerId: user.id },
+          { requestedDriverId: user.id },
+          { assignedDriverId: user.id },
+        ],
         ...(state ? { state: state as BookingState } : {}),
       },
       include: {
@@ -147,7 +178,9 @@ export class BookingsService {
   }
 
   /** Customer phone is only revealed to the driver who is actually assigned to the job. */
-  private redact<T extends { customerId: string; assignedDriverId: string | null; customer: { phone: string } }>(b: T, userId: string): T {
+  private redact<
+    T extends { customerId: string; assignedDriverId: string | null; customer: { phone: string } },
+  >(b: T, userId: string): T {
     if (b.customerId !== userId && b.assignedDriverId !== userId) {
       return { ...b, customer: { ...b.customer, phone: undefined as unknown as string } };
     }
@@ -160,11 +193,17 @@ export class BookingsService {
     const booking = await this.prisma.$transaction(async (tx) => {
       const b = await tx.booking.findUnique({ where: { id: bookingId } });
       if (!b) throw new NotFoundException('Booking not found');
-      if (b.requestedDriverId !== driverId) throw new ForbiddenException('This request was not sent to you');
+      if (b.requestedDriverId !== driverId)
+        throw new ForbiddenException('This request was not sent to you');
       const open = await tx.referral.findFirst({
-        where: { bookingId, state: { in: ['PROPOSED', 'CANDIDATE_ACCEPTED'] }, expiresAt: { gt: new Date() } },
+        where: {
+          bookingId,
+          state: { in: ['PROPOSED', 'CANDIDATE_ACCEPTED'] },
+          expiresAt: { gt: new Date() },
+        },
       });
-      if (open) throw new ConflictException('Cancel the open referral before accepting this job yourself');
+      if (open)
+        throw new ConflictException('Cancel the open referral before accepting this job yourself');
       return this.assignInTx(tx, bookingId, driverId, driverId, 'DIRECT');
     });
     await this.afterAssigned(booking.id, booking.customerId, driverId);
@@ -190,7 +229,12 @@ export class BookingsService {
     await this.eligibility.assertEligible(tx, driverId, b.type, b.scheduledAt);
 
     const res = await tx.booking.updateMany({
-      where: { id: bookingId, state: 'REQUESTED', assignedDriverId: null, expiresAt: { gt: new Date() } },
+      where: {
+        id: bookingId,
+        state: 'REQUESTED',
+        assignedDriverId: null,
+        expiresAt: { gt: new Date() },
+      },
       data: {
         state: 'ACCEPTED',
         assignedDriverId: driverId,
@@ -198,15 +242,27 @@ export class BookingsService {
       },
     });
     if (res.count === 0) throw new ConflictException('This booking is no longer available');
-    await this.event(tx, bookingId, source === 'REFERRAL' ? 'ASSIGNED_VIA_REFERRAL' : 'ACCEPTED', actorId, {
-      driverId,
-      ...(opts.revisedQuote ? { revisedQuote: opts.revisedQuote } : {}),
-    });
+    await this.event(
+      tx,
+      bookingId,
+      source === 'REFERRAL' ? 'ASSIGNED_VIA_REFERRAL' : 'ACCEPTED',
+      actorId,
+      {
+        driverId,
+        ...(opts.revisedQuote ? { revisedQuote: opts.revisedQuote } : {}),
+      },
+    );
     return b;
   }
 
   async afterAssigned(bookingId: string, customerId: string, driverId: string) {
-    await this.notifications.notify(customerId, 'BOOKING_ACCEPTED', 'Driver confirmed', 'Your driver is on the way once the trip starts.', { bookingId });
+    await this.notifications.notify(
+      customerId,
+      'BOOKING_ACCEPTED',
+      'Driver confirmed',
+      'Your driver is on the way once the trip starts.',
+      { bookingId },
+    );
     this.notifications.bookingChanged([customerId, driverId], bookingId, 'ACCEPTED');
   }
 
@@ -214,9 +270,22 @@ export class BookingsService {
     const b = await this.prisma.booking.findUnique({ where: { id: bookingId } });
     if (!b) throw new NotFoundException('Booking not found');
     if (b.requestedDriverId !== driverId) throw new ForbiddenException();
-    await this.transition(bookingId, 'REQUESTED', 'DECLINED', driverId, { assignedDriverId: null }, 'DECLINED');
+    await this.transition(
+      bookingId,
+      'REQUESTED',
+      'DECLINED',
+      driverId,
+      { assignedDriverId: null },
+      'DECLINED',
+    );
     await this.cancelOpenReferrals(bookingId);
-    await this.notifications.notify(b.customerId, 'BOOKING_DECLINED', 'Request declined', 'Your driver is unavailable. You can request another trusted driver.', { bookingId });
+    await this.notifications.notify(
+      b.customerId,
+      'BOOKING_DECLINED',
+      'Request declined',
+      'Your driver is unavailable. You can request another trusted driver.',
+      { bookingId },
+    );
     this.notifications.bookingChanged([b.customerId, driverId], bookingId, 'DECLINED');
     return this.get(bookingId, { id: driverId, roles: ['DRIVER'] });
   }
@@ -225,13 +294,28 @@ export class BookingsService {
     if (!DRIVER_PROGRESS_STATES.includes(to)) throw new BadRequestException('Invalid status');
     const b = await this.prisma.booking.findUnique({ where: { id: bookingId } });
     if (!b) throw new NotFoundException('Booking not found');
-    if (b.assignedDriverId !== driverId) throw new ForbiddenException('You are not assigned to this booking');
+    if (b.assignedDriverId !== driverId)
+      throw new ForbiddenException('You are not assigned to this booking');
     const from = b.state as BookingStateName;
-    if (!canTransition(from, to)) throw new BadRequestException(`Cannot move from ${from} to ${to}`);
+    if (!canTransition(from, to))
+      throw new BadRequestException(`Cannot move from ${from} to ${to}`);
 
-    await this.transition(bookingId, from, to as BookingStateName, driverId, { assignedDriverId: driverId }, to,
-      to === 'COMPLETED' ? { completedAt: new Date() } : {});
-    await this.notifications.notify(b.customerId, `BOOKING_${to}`, statusTitle(to), statusBody(to), { bookingId });
+    await this.transition(
+      bookingId,
+      from,
+      to as BookingStateName,
+      driverId,
+      { assignedDriverId: driverId },
+      to,
+      to === 'COMPLETED' ? { completedAt: new Date() } : {},
+    );
+    await this.notifications.notify(
+      b.customerId,
+      `BOOKING_${to}`,
+      statusTitle(to),
+      statusBody(to),
+      { bookingId },
+    );
     this.notifications.bookingChanged([b.customerId, driverId], bookingId, to);
     return this.get(bookingId, { id: driverId, roles: ['DRIVER'] });
   }
@@ -247,11 +331,30 @@ export class BookingsService {
     if (!allowed.includes(from) || !canTransition(from, 'CANCELLED')) {
       throw new BadRequestException(`A booking in state ${from} can no longer be cancelled`);
     }
-    await this.transition(bookingId, from, 'CANCELLED', user.id, {}, 'CANCELLED', { cancelledReason: reason ?? null }, { reason, by: isCustomer ? 'CUSTOMER' : 'DRIVER' });
+    await this.transition(
+      bookingId,
+      from,
+      'CANCELLED',
+      user.id,
+      {},
+      'CANCELLED',
+      { cancelledReason: reason ?? null },
+      { reason, by: isCustomer ? 'CUSTOMER' : 'DRIVER' },
+    );
     await this.cancelOpenReferrals(bookingId);
-    const other = isCustomer ? b.assignedDriverId ?? b.requestedDriverId : b.customerId;
-    await this.notifications.notify(other, 'BOOKING_CANCELLED', 'Booking cancelled', reason ?? 'The booking was cancelled.', { bookingId });
-    this.notifications.bookingChanged([b.customerId, b.requestedDriverId, b.assignedDriverId], bookingId, 'CANCELLED');
+    const other = isCustomer ? (b.assignedDriverId ?? b.requestedDriverId) : b.customerId;
+    await this.notifications.notify(
+      other,
+      'BOOKING_CANCELLED',
+      'Booking cancelled',
+      reason ?? 'The booking was cancelled.',
+      { bookingId },
+    );
+    this.notifications.bookingChanged(
+      [b.customerId, b.requestedDriverId, b.assignedDriverId],
+      bookingId,
+      'CANCELLED',
+    );
     return this.get(bookingId, user);
   }
 
@@ -273,7 +376,8 @@ export class BookingsService {
         where: { id: bookingId, state: from as BookingState, ...extraWhere },
         data: { state: to as BookingState, ...extraData },
       });
-      if (res.count === 0) throw new ConflictException('The booking changed in the meantime. Please refresh.');
+      if (res.count === 0)
+        throw new ConflictException('The booking changed in the meantime. Please refresh.');
       await this.event(tx, bookingId, eventType, actorId, meta);
     });
   }
@@ -285,9 +389,20 @@ export class BookingsService {
     });
   }
 
-  private event(tx: Tx, bookingId: string, type: string, actorId: string | null, metadata?: Record<string, unknown>) {
+  private event(
+    tx: Tx,
+    bookingId: string,
+    type: string,
+    actorId: string | null,
+    metadata?: Record<string, unknown>,
+  ) {
     return tx.bookingEvent.create({
-      data: { bookingId, type, actorId, metadata: (metadata ?? undefined) as Prisma.InputJsonValue | undefined },
+      data: {
+        bookingId,
+        type,
+        actorId,
+        metadata: (metadata ?? undefined) as Prisma.InputJsonValue | undefined,
+      },
     });
   }
 
@@ -306,7 +421,13 @@ export class BookingsService {
           where: { bookingId: s.id, state: { in: ['PROPOSED', 'CANDIDATE_ACCEPTED'] } },
           data: { state: 'EXPIRED' },
         });
-        await this.notifications.notify(s.customerId, 'BOOKING_EXPIRED', 'Request expired', 'Your driver did not respond in time.', { bookingId: s.id });
+        await this.notifications.notify(
+          s.customerId,
+          'BOOKING_EXPIRED',
+          'Request expired',
+          'Your driver did not respond in time.',
+          { bookingId: s.id },
+        );
         this.notifications.bookingChanged([s.customerId, s.requestedDriverId], s.id, 'EXPIRED');
       } catch {
         /* lost a race with an accept/cancel: that's fine */
@@ -317,16 +438,25 @@ export class BookingsService {
 
 function statusTitle(s: string) {
   return (
-    { EN_ROUTE: 'Driver on the way', ARRIVED: 'Driver has arrived', IN_PROGRESS: 'Trip started', COMPLETED: 'Trip completed' } as Record<string, string>
-  )[s] ?? 'Booking update';
+    (
+      {
+        EN_ROUTE: 'Driver on the way',
+        ARRIVED: 'Driver has arrived',
+        IN_PROGRESS: 'Trip started',
+        COMPLETED: 'Trip completed',
+      } as Record<string, string>
+    )[s] ?? 'Booking update'
+  );
 }
 function statusBody(s: string) {
   return (
-    {
-      EN_ROUTE: 'Live tracking is now available for this trip.',
-      ARRIVED: 'Your driver is at the pickup point.',
-      IN_PROGRESS: 'Enjoy your ride.',
-      COMPLETED: 'Please rate your trip. Live tracking has stopped.',
-    } as Record<string, string>
-  )[s] ?? '';
+    (
+      {
+        EN_ROUTE: 'Live tracking is now available for this trip.',
+        ARRIVED: 'Your driver is at the pickup point.',
+        IN_PROGRESS: 'Enjoy your ride.',
+        COMPLETED: 'Please rate your trip. Live tracking has stopped.',
+      } as Record<string, string>
+    )[s] ?? ''
+  );
 }

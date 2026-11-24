@@ -18,7 +18,10 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!user) return;
-    const s = io(`${SOCKET_URL}/realtime`, { withCredentials: true, transports: ['websocket', 'polling'] });
+    const s = io(`${SOCKET_URL}/realtime`, {
+      withCredentials: true,
+      transports: ['websocket', 'polling'],
+    });
     const refresh = () => {
       qc.invalidateQueries({ queryKey: ['bookings'] });
       qc.invalidateQueries({ queryKey: ['booking'] });

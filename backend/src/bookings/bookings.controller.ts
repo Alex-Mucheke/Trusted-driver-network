@@ -37,12 +37,20 @@ export class BookingsController {
 
   @Roles('DRIVER')
   @Post(':id/status')
-  status(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateStatusDto) {
+  status(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateStatusDto,
+  ) {
     return this.bookings.progress(user.id, id, dto.state);
   }
 
   @Post(':id/cancel')
-  cancel(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body() dto: CancelDto) {
+  cancel(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CancelDto,
+  ) {
     return this.bookings.cancel(user, id, dto.reason);
   }
 }

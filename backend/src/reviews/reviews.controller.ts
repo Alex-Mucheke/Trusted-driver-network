@@ -1,6 +1,24 @@
-import { BadRequestException, Body, ConflictException, Controller, ForbiddenException, NotFoundException, Post } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  ConflictException,
+  Controller,
+  ForbiddenException,
+  NotFoundException,
+  Post,
+} from '@nestjs/common';
 import { Prisma, ReportType } from '@prisma/client';
-import { IsEnum, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min, MinLength } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
 import { AuthUser, CurrentUser, Roles } from '../common/decorators';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -29,13 +47,21 @@ export class ReviewsController {
     const b = await this.prisma.booking.findUnique({ where: { id: dto.bookingId } });
     if (!b) throw new NotFoundException('Booking not found');
     if (b.customerId !== user.id) throw new ForbiddenException();
-    if (b.state !== 'COMPLETED' || !b.assignedDriverId) throw new BadRequestException('Only completed trips can be reviewed');
+    if (b.state !== 'COMPLETED' || !b.assignedDriverId)
+      throw new BadRequestException('Only completed trips can be reviewed');
     try {
       return await this.prisma.review.create({
-        data: { bookingId: b.id, authorId: user.id, driverId: b.assignedDriverId, rating: dto.rating, comment: dto.comment },
+        data: {
+          bookingId: b.id,
+          authorId: user.id,
+          driverId: b.assignedDriverId,
+          rating: dto.rating,
+          comment: dto.comment,
+        },
       });
     } catch (e) {
-      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') throw new ConflictException('You already reviewed this trip');
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002')
+        throw new ConflictException('You already reviewed this trip');
       throw e;
     }
   }
@@ -45,13 +71,19 @@ export class ReviewsController {
   async report(@CurrentUser() user: AuthUser, @Body() dto: ReportDto) {
     if (dto.bookingId) {
       const b = await this.prisma.booking.findUnique({ where: { id: dto.bookingId } });
-      if (!b || ![b.customerId, b.requestedDriverId, b.assignedDriverId].includes(user.id)) throw new ForbiddenException();
+      if (!b || ![b.customerId, b.requestedDriverId, b.assignedDriverId].includes(user.id))
+        throw new ForbiddenException();
     }
-    if (!dto.bookingId && !dto.targetUserId) throw new BadRequestException('Provide a booking or a user to report');
+    if (!dto.bookingId && !dto.targetUserId)
+      throw new BadRequestException('Provide a booking or a user to report');
     return this.prisma.report.create({
       data: {
-        type: dto.type ?? 'REPORT', reporterId: user.id, targetUserId: dto.targetUserId, bookingId: dto.bookingId,
-        category: dto.category, description: dto.description,
+        type: dto.type ?? 'REPORT',
+        reporterId: user.id,
+        targetUserId: dto.targetUserId,
+        bookingId: dto.bookingId,
+        category: dto.category,
+        description: dto.description,
       },
     });
   }

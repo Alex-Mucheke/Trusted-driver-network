@@ -25,7 +25,13 @@ export class LocationsService {
     body: { bookingId: string; lat: number; lng: number; accuracy?: number; capturedAt?: string },
   ) {
     const { bookingId, lat, lng } = body ?? ({} as typeof body);
-    if (typeof bookingId !== 'string' || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+    if (
+      typeof bookingId !== 'string' ||
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lng) ||
+      Math.abs(lat) > 90 ||
+      Math.abs(lng) > 180
+    ) {
       throw new BadRequestException('Invalid location payload');
     }
     const booking = await this.prisma.booking.findFirst({
@@ -37,7 +43,8 @@ export class LocationsService {
 
     const now = Date.now();
     const capturedAt = body.capturedAt ? new Date(body.capturedAt) : new Date(now);
-    if (Number.isNaN(capturedAt.getTime()) || now - capturedAt.getTime() > MAX_STALE_MS) return null; // stale GPS
+    if (Number.isNaN(capturedAt.getTime()) || now - capturedAt.getTime() > MAX_STALE_MS)
+      return null; // stale GPS
     const last = this.lastSeen.get(driverId) ?? 0;
     if (now - last < this.minInterval) return null; // throttled
     this.lastSeen.set(driverId, now);
@@ -45,7 +52,10 @@ export class LocationsService {
     const retentionMs = Number(process.env.LOCATION_RETENTION_MINUTES ?? 60) * 60_000;
     await this.prisma.driverLocation.create({
       data: {
-        driverId, bookingId, lat, lng,
+        driverId,
+        bookingId,
+        lat,
+        lng,
         accuracy: typeof body.accuracy === 'number' ? body.accuracy : null,
         capturedAt,
         expiresAt: new Date(now + retentionMs),
@@ -53,7 +63,13 @@ export class LocationsService {
     });
     return {
       customerId: booking.customerId,
-      payload: { bookingId, lat, lng, accuracy: body.accuracy ?? null, capturedAt: capturedAt.toISOString() },
+      payload: {
+        bookingId,
+        lat,
+        lng,
+        accuracy: body.accuracy ?? null,
+        capturedAt: capturedAt.toISOString(),
+      },
     };
   }
 
@@ -85,8 +101,18 @@ export class LocationsService {
       select: {
         driver: {
           select: {
-            id: true, name: true,
-            driverProfile: { select: { availability: true, shareApproxLocation: true, approxLat: true, approxLng: true, approxUpdatedAt: true, serviceArea: true } },
+            id: true,
+            name: true,
+            driverProfile: {
+              select: {
+                availability: true,
+                shareApproxLocation: true,
+                approxLat: true,
+                approxLng: true,
+                approxUpdatedAt: true,
+                serviceArea: true,
+              },
+            },
           },
         },
       },
@@ -99,7 +125,10 @@ export class LocationsService {
         name: driver.name,
         availability: p?.availability ?? 'OFFLINE',
         serviceArea: p?.serviceArea ?? null,
-        approx: share && p?.approxLat != null ? { lat: p.approxLat, lng: p.approxLng, updatedAt: p.approxUpdatedAt } : null,
+        approx:
+          share && p?.approxLat != null
+            ? { lat: p.approxLat, lng: p.approxLng, updatedAt: p.approxUpdatedAt }
+            : null,
       };
     });
   }

@@ -33,12 +33,25 @@ export interface DriverBrief {
 }
 
 export type BookingState =
-  | 'DRAFT' | 'REQUESTED' | 'ACCEPTED' | 'EN_ROUTE' | 'ARRIVED' | 'IN_PROGRESS'
-  | 'COMPLETED' | 'DECLINED' | 'CANCELLED' | 'EXPIRED';
+  | 'DRAFT'
+  | 'REQUESTED'
+  | 'ACCEPTED'
+  | 'EN_ROUTE'
+  | 'ARRIVED'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'DECLINED'
+  | 'CANCELLED'
+  | 'EXPIRED';
 
 export type ReferralState =
-  | 'PROPOSED' | 'CANDIDATE_ACCEPTED' | 'CUSTOMER_APPROVED' | 'CANDIDATE_DECLINED'
-  | 'CUSTOMER_REJECTED' | 'EXPIRED' | 'CANCELLED';
+  | 'PROPOSED'
+  | 'CANDIDATE_ACCEPTED'
+  | 'CUSTOMER_APPROVED'
+  | 'CANDIDATE_DECLINED'
+  | 'CUSTOMER_REJECTED'
+  | 'EXPIRED'
+  | 'CANCELLED';
 
 export interface Referral {
   id: string;
@@ -53,18 +66,35 @@ export interface Referral {
 }
 
 export interface RideDetails {
-  pickupAddress: string; pickupLat: number; pickupLng: number;
-  dropoffAddress: string; dropoffLat: number; dropoffLng: number;
+  pickupAddress: string;
+  pickupLat: number;
+  pickupLng: number;
+  dropoffAddress: string;
+  dropoffLat: number;
+  dropoffLng: number;
   distanceKm: number;
 }
 
 export interface Payment {
-  id: string; method: 'CASH' | 'MPESA'; state: string;
-  serviceCharge: number; itemCost: number; platformFee: number; tip: number; total: number;
-  receiptNumber: string | null; paidAt: string | null;
+  id: string;
+  method: 'CASH' | 'MPESA';
+  state: string;
+  serviceCharge: number;
+  itemCost: number;
+  platformFee: number;
+  tip: number;
+  total: number;
+  receiptNumber: string | null;
+  paidAt: string | null;
 }
 
-export interface BookingEvent { id: string; type: string; actorId: string | null; createdAt: string; metadata?: unknown }
+export interface BookingEvent {
+  id: string;
+  type: string;
+  actorId: string | null;
+  createdAt: string;
+  metadata?: unknown;
+}
 
 export interface Booking {
   id: string;
@@ -91,6 +121,11 @@ export interface Booking {
 }
 
 export interface NotificationItem {
-  id: string; type: string; title: string; body: string; readAt: string | null; createdAt: string;
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  readAt: string | null;
+  createdAt: string;
   data?: { bookingId?: string } | null;
 }

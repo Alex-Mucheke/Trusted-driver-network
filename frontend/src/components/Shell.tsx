@@ -27,21 +27,43 @@ function Bell() {
   const [open, setOpen] = useState(false);
   const nav = useNavigate();
   const qc = useQueryClient();
-  const { data } = useQuery({ queryKey: ['notifications'], queryFn: () => get<NotificationItem[]>('/notifications'), refetchInterval: 60_000 });
-  const readAll = useMutation({ mutationFn: () => post('/notifications/read-all'), onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }) });
+  const { data } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: () => get<NotificationItem[]>('/notifications'),
+    refetchInterval: 60_000,
+  });
+  const readAll = useMutation({
+    mutationFn: () => post('/notifications/read-all'),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
+  });
   const unread = data?.filter((n) => !n.readAt).length ?? 0;
 
   return (
     <div className="relative">
-      <button className="relative rounded-lg p-2 hover:bg-slate-100" onClick={() => setOpen((o) => !o)} aria-label={`Notifications (${unread} unread)`}>
+      <button
+        className="relative rounded-lg p-2 hover:bg-slate-100"
+        onClick={() => setOpen((o) => !o)}
+        aria-label={`Notifications (${unread} unread)`}
+      >
         <span aria-hidden>🔔</span>
-        {unread > 0 && <span className="absolute -right-0.5 -top-0.5 rounded-full bg-red-600 px-1.5 text-[10px] font-bold text-white">{unread}</span>}
+        {unread > 0 && (
+          <span className="absolute -right-0.5 -top-0.5 rounded-full bg-red-600 px-1.5 text-[10px] font-bold text-white">
+            {unread}
+          </span>
+        )}
       </button>
       {open && (
         <div className="absolute right-0 z-40 mt-2 w-80 max-w-[90vw] rounded-xl border border-slate-200 bg-white shadow-lg">
           <div className="flex items-center justify-between border-b px-3 py-2">
             <span className="text-sm font-semibold">Notifications</span>
-            {unread > 0 && <button className="text-xs text-brand-700 hover:underline" onClick={() => readAll.mutate()}>Mark all read</button>}
+            {unread > 0 && (
+              <button
+                className="text-xs text-brand-700 hover:underline"
+                onClick={() => readAll.mutate()}
+              >
+                Mark all read
+              </button>
+            )}
           </div>
           <ul className="max-h-80 divide-y overflow-auto">
             {data?.length ? (
@@ -56,7 +78,9 @@ function Bell() {
                   >
                     <div>{n.title}</div>
                     <div className="text-xs font-normal text-slate-500">{n.body}</div>
-                    <div className="mt-0.5 text-[11px] font-normal text-slate-400">{when(n.createdAt)}</div>
+                    <div className="mt-0.5 text-[11px] font-normal text-slate-400">
+                      {when(n.createdAt)}
+                    </div>
                   </button>
                 </li>
               ))
@@ -86,11 +110,23 @@ export function Shell() {
           {user ? (
             <div className="flex items-center gap-1">
               <Bell />
-              <NavLink to="/settings" className="rounded-lg px-2 py-1 text-sm hover:bg-slate-100">{user.name.split(' ')[0]}</NavLink>
-              <button className="btn-secondary !px-3 !py-1" onClick={async () => { await logout(); nav('/'); }}>Sign out</button>
+              <NavLink to="/settings" className="rounded-lg px-2 py-1 text-sm hover:bg-slate-100">
+                {user.name.split(' ')[0]}
+              </NavLink>
+              <button
+                className="btn-secondary !px-3 !py-1"
+                onClick={async () => {
+                  await logout();
+                  nav('/');
+                }}
+              >
+                Sign out
+              </button>
             </div>
           ) : (
-            <Link className="btn-primary" to="/login">Sign in</Link>
+            <Link className="btn-primary" to="/login">
+              Sign in
+            </Link>
           )}
         </div>
         {links.length > 0 && (
@@ -110,7 +146,9 @@ export function Shell() {
           </nav>
         )}
       </header>
-      <main><Outlet /></main>
+      <main>
+        <Outlet />
+      </main>
     </div>
   );
 }

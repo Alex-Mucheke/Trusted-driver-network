@@ -31,7 +31,10 @@ function readCookie(header: string | undefined, name: string): string | undefine
  */
 @WebSocketGateway({
   namespace: '/realtime',
-  cors: { origin: (process.env.CORS_ORIGIN ?? 'http://localhost:5173').split(','), credentials: true },
+  cors: {
+    origin: (process.env.CORS_ORIGIN ?? 'http://localhost:5173').split(','),
+    credentials: true,
+  },
 })
 export class RealtimeGateway implements OnGatewayConnection {
   private readonly logger = new Logger(RealtimeGateway.name);
@@ -69,7 +72,8 @@ export class RealtimeGateway implements OnGatewayConnection {
   @SubscribeMessage('location:update')
   async onLocationUpdate(
     @ConnectedSocket() client: Socket,
-    @MessageBody() body: { bookingId: string; lat: number; lng: number; accuracy?: number; capturedAt?: string },
+    @MessageBody()
+    body: { bookingId: string; lat: number; lng: number; accuracy?: number; capturedAt?: string },
   ) {
     const user = client.data.user as AuthUser | undefined;
     if (!user) return { ok: false, error: 'unauthenticated' };

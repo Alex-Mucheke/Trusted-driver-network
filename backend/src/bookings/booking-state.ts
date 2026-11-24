@@ -35,13 +35,28 @@ export function isTerminal(state: BookingStateName): boolean {
 }
 
 /** States in which a driver is committed to a job (used for busy checks and precise-GPS authorization). */
-export const ACTIVE_JOB_STATES: BookingStateName[] = ['ACCEPTED', 'EN_ROUTE', 'ARRIVED', 'IN_PROGRESS'];
+export const ACTIVE_JOB_STATES: BookingStateName[] = [
+  'ACCEPTED',
+  'EN_ROUTE',
+  'ARRIVED',
+  'IN_PROGRESS',
+];
 
 /** States a driver may push a booking into via the status endpoint. */
-export const DRIVER_PROGRESS_STATES: BookingStateName[] = ['EN_ROUTE', 'ARRIVED', 'IN_PROGRESS', 'COMPLETED'];
+export const DRIVER_PROGRESS_STATES: BookingStateName[] = [
+  'EN_ROUTE',
+  'ARRIVED',
+  'IN_PROGRESS',
+  'COMPLETED',
+];
 
 /** States from which the customer may still cancel (not once the ride is underway). */
-export const CUSTOMER_CANCELLABLE: BookingStateName[] = ['REQUESTED', 'ACCEPTED', 'EN_ROUTE', 'ARRIVED'];
+export const CUSTOMER_CANCELLABLE: BookingStateName[] = [
+  'REQUESTED',
+  'ACCEPTED',
+  'EN_ROUTE',
+  'ARRIVED',
+];
 
 /** States from which the assigned driver may cancel. */
 export const DRIVER_CANCELLABLE: BookingStateName[] = ['ACCEPTED', 'EN_ROUTE', 'ARRIVED'];

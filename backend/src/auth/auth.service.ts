@@ -13,11 +13,21 @@ export function newShareCode(len = 8): string {
   return Array.from(bytes, (b) => SHARE_ALPHABET[b % SHARE_ALPHABET.length]).join('');
 }
 
-const userSelect = { id: true, name: true, email: true, phone: true, roles: true, status: true } as const;
+const userSelect = {
+  id: true,
+  name: true,
+  email: true,
+  phone: true,
+  roles: true,
+  status: true,
+} as const;
 
 @Injectable()
 export class AuthService {
-  constructor(private prisma: PrismaService, private jwt: JwtService) {}
+  constructor(
+    private prisma: PrismaService,
+    private jwt: JwtService,
+  ) {}
 
   async register(dto: RegisterDto) {
     const passwordHash = await bcrypt.hash(dto.password, 12);
@@ -59,7 +69,10 @@ export class AuthService {
     const ok = row ? await bcrypt.compare(dto.password, row.passwordHash) : false;
     if (!row || !ok) throw new UnauthorizedException('Invalid email or password');
     if (row.status !== 'ACTIVE') throw new UnauthorizedException('Account suspended');
-    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: row.id }, select: userSelect });
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: row.id },
+      select: userSelect,
+    });
     return { user, token: this.sign(row.id) };
   }
 

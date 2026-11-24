@@ -13,7 +13,8 @@ export default defineConfig({
       manifest: {
         name: 'Trusted Driver Network',
         short_name: 'TrustedDrivers',
-        description: 'Book the drivers you trust. Get a customer-approved replacement when they are busy.',
+        description:
+          'Book the drivers you trust. Get a customer-approved replacement when they are busy.',
         theme_color: '#047857',
         background_color: '#f8fafc',
         display: 'standalone',

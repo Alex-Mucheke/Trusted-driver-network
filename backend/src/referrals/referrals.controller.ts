@@ -45,14 +45,22 @@ export class ReferralsController {
 
   @Roles('DRIVER')
   @Post(':id/respond')
-  candidateRespond(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body() dto: CandidateResponseDto) {
+  candidateRespond(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CandidateResponseDto,
+  ) {
     return this.referrals.candidateRespond(user.id, id, dto);
   }
 
   /** Customer explicitly approves (or rejects) the replacement. Only approval assigns the new driver. */
   @Roles('CUSTOMER')
   @Post(':id/decision')
-  customerDecision(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body() dto: CustomerResponseDto) {
+  customerDecision(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CustomerResponseDto,
+  ) {
     return this.referrals.customerDecision(user.id, id, dto.approve);
   }
 

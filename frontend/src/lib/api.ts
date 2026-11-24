@@ -1,7 +1,10 @@
 const BASE: string = import.meta.env.VITE_API_URL ?? '/api';
 
 export class ApiError extends Error {
-  constructor(message: string, public status: number) {
+  constructor(
+    message: string,
+    public status: number,
+  ) {
     super(message);
   }
 }
@@ -20,14 +23,16 @@ export async function api<T = unknown>(path: string, opts: Opts = {}): Promise<T
   const data = await res.json().catch(() => null);
   if (!res.ok) {
     const raw = data?.message;
-    const message = Array.isArray(raw) ? raw.join(', ') : raw ?? res.statusText ?? 'Request failed';
+    const message = Array.isArray(raw)
+      ? raw.join(', ')
+      : (raw ?? res.statusText ?? 'Request failed');
     throw new ApiError(String(message), res.status);
   }
   return data as T;
 }
 
-export const get = <T,>(path: string) => api<T>(path);
-export const post = <T,>(path: string, body: unknown = {}) => api<T>(path, { method: 'POST', body });
-export const put = <T,>(path: string, body: unknown) => api<T>(path, { method: 'PUT', body });
-export const patch = <T,>(path: string, body: unknown) => api<T>(path, { method: 'PATCH', body });
-export const del = <T,>(path: string) => api<T>(path, { method: 'DELETE' });
+export const get = <T>(path: string) => api<T>(path);
+export const post = <T>(path: string, body: unknown = {}) => api<T>(path, { method: 'POST', body });
+export const put = <T>(path: string, body: unknown) => api<T>(path, { method: 'PUT', body });
+export const patch = <T>(path: string, body: unknown) => api<T>(path, { method: 'PATCH', body });
+export const del = <T>(path: string) => api<T>(path, { method: 'DELETE' });

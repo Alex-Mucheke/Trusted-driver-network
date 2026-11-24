@@ -1,9 +1,32 @@
-import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, Post, Put } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  NotFoundException,
+  Param,
+  Post,
+  Put,
+} from '@nestjs/common';
 import { DocumentKind, ServiceType, VehicleType } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
-  ArrayMaxSize, IsArray, IsBoolean, IsEnum, IsIn, IsInt, IsLatitude, IsLongitude, IsOptional, IsString,
-  Max, MaxLength, Min, MinLength, ValidateNested,
+  ArrayMaxSize,
+  IsArray,
+  IsBoolean,
+  IsEnum,
+  IsIn,
+  IsInt,
+  IsLatitude,
+  IsLongitude,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+  ValidateNested,
 } from 'class-validator';
 import { AuthUser, CurrentUser, Public, Roles } from '../common/decorators';
 import { approximate } from '../common/geo';
@@ -28,7 +51,11 @@ class ServiceItemDto {
   @IsBoolean() active: boolean;
 }
 class ServicesDto {
-  @IsArray() @ArrayMaxSize(10) @ValidateNested({ each: true }) @Type(() => ServiceItemDto) services: ServiceItemDto[];
+  @IsArray()
+  @ArrayMaxSize(10)
+  @ValidateNested({ each: true })
+  @Type(() => ServiceItemDto)
+  services: ServiceItemDto[];
 }
 
 class VehicleDto {
@@ -60,13 +87,20 @@ export class DriversController {
       where: { shareCode: shareCode.toUpperCase() },
       include: {
         user: { select: { id: true, name: true } },
-        vehicles: { where: { active: true }, select: { plate: true, type: true, make: true, model: true, color: true, capacity: true } },
+        vehicles: {
+          where: { active: true },
+          select: { plate: true, type: true, make: true, model: true, color: true, capacity: true },
+        },
         services: { where: { active: true }, select: { serviceType: true } },
       },
     });
     // Only verified drivers are discoverable.
     if (!p || p.verificationStatus !== 'APPROVED') throw new NotFoundException('Driver not found');
-    const rating = await this.prisma.review.aggregate({ where: { driverId: p.userId }, _avg: { rating: true }, _count: true });
+    const rating = await this.prisma.review.aggregate({
+      where: { driverId: p.userId },
+      _avg: { rating: true },
+      _count: true,
+    });
     return {
       id: p.userId,
       name: p.user.name,
@@ -106,7 +140,9 @@ export class DriversController {
   @Roles('DRIVER')
   @Put('me/availability')
   async setAvailability(@CurrentUser() user: AuthUser, @Body() dto: AvailabilityDto) {
-    const profile = await this.prisma.driverProfile.findUniqueOrThrow({ where: { userId: user.id } });
+    const profile = await this.prisma.driverProfile.findUniqueOrThrow({
+      where: { userId: user.id },
+    });
     if (dto.availability === 'ONLINE' && profile.verificationStatus !== 'APPROVED') {
       throw new BadRequestException('Only verified drivers can go online');
     }
@@ -118,8 +154,10 @@ export class DriversController {
         availability: dto.availability,
         shareApproxLocation: share,
         // Only rounded coordinates are stored, and only with consent.
-        approxLat: share && hasCoords && dto.availability === 'ONLINE' ? approximate(dto.lat!) : null,
-        approxLng: share && hasCoords && dto.availability === 'ONLINE' ? approximate(dto.lng!) : null,
+        approxLat:
+          share && hasCoords && dto.availability === 'ONLINE' ? approximate(dto.lat!) : null,
+        approxLng:
+          share && hasCoords && dto.availability === 'ONLINE' ? approximate(dto.lng!) : null,
         approxUpdatedAt: share && hasCoords ? new Date() : null,
       },
       select: { availability: true, shareApproxLocation: true },
@@ -144,13 +182,22 @@ export class DriversController {
   @Roles('DRIVER')
   @Post('me/vehicles')
   addVehicle(@CurrentUser() user: AuthUser, @Body() dto: VehicleDto) {
-    return this.prisma.vehicle.create({ data: { ...dto, plate: dto.plate.toUpperCase().replace(/\s+/g, ' ').trim(), driverId: user.id } });
+    return this.prisma.vehicle.create({
+      data: {
+        ...dto,
+        plate: dto.plate.toUpperCase().replace(/\s+/g, ' ').trim(),
+        driverId: user.id,
+      },
+    });
   }
 
   @Roles('DRIVER')
   @Delete('me/vehicles/:id')
   async deactivateVehicle(@CurrentUser() user: AuthUser, @Param('id') id: string) {
-    await this.prisma.vehicle.updateMany({ where: { id, driverId: user.id }, data: { active: false } });
+    await this.prisma.vehicle.updateMany({
+      where: { id, driverId: user.id },
+      data: { active: false },
+    });
     return { ok: true };
   }
 
@@ -159,7 +206,9 @@ export class DriversController {
   @Post('me/documents')
   async addDocument(@CurrentUser() user: AuthUser, @Body() dto: DocumentDto) {
     if (dto.vehicleId) {
-      const v = await this.prisma.vehicle.findFirst({ where: { id: dto.vehicleId, driverId: user.id } });
+      const v = await this.prisma.vehicle.findFirst({
+        where: { id: dto.vehicleId, driverId: user.id },
+      });
       if (!v) throw new BadRequestException('Unknown vehicle');
     }
     // Resubmitting after a rejection puts the profile back in the review queue.

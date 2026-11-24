@@ -1,7 +1,18 @@
 import { ServiceType } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
-  IsDateString, IsEnum, IsIn, IsInt, IsLatitude, IsLongitude, IsOptional, IsString, IsUUID, Max, MaxLength, Min,
+  IsDateString,
+  IsEnum,
+  IsIn,
+  IsInt,
+  IsLatitude,
+  IsLongitude,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  MaxLength,
+  Min,
   ValidateNested,
 } from 'class-validator';
 

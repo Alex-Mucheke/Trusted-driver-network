@@ -29,7 +29,9 @@ async function bootstrap() {
   if (swaggerEnabled) {
     const config = new DocumentBuilder()
       .setTitle('Trusted Driver Network API')
-      .setDescription('Relationship-first transport platform: bookings, referrals, tracking, payments.')
+      .setDescription(
+        'Relationship-first transport platform: bookings, referrals, tracking, payments.',
+      )
       .setVersion('1.0')
       .addCookieAuth(COOKIE_NAME)
       .build();
@@ -38,7 +40,7 @@ async function bootstrap() {
 
   const port = Number(process.env.PORT ?? 3000);
   await app.listen(port);
-   
+
   console.log(`Trusted Driver Network API listening on :${port}`);
 }
 bootstrap();

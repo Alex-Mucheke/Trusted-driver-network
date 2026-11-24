@@ -9,7 +9,13 @@ import {
 describe('booking state machine', () => {
   it('allows the happy path in order', () => {
     const path: BookingStateName[] = [
-      'DRAFT', 'REQUESTED', 'ACCEPTED', 'EN_ROUTE', 'ARRIVED', 'IN_PROGRESS', 'COMPLETED',
+      'DRAFT',
+      'REQUESTED',
+      'ACCEPTED',
+      'EN_ROUTE',
+      'ARRIVED',
+      'IN_PROGRESS',
+      'COMPLETED',
     ];
     for (let i = 0; i < path.length - 1; i++) {
       expect(canTransition(path[i], path[i + 1])).toBe(true);

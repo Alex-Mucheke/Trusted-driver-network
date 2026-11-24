@@ -1,6 +1,17 @@
 import {
-  Body, Controller, ForbiddenException, Get, Headers, HttpCode, NotFoundException, NotImplementedException,
-  Param, ParseUUIDPipe, Post, ConflictException, BadRequestException,
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  Headers,
+  HttpCode,
+  NotFoundException,
+  NotImplementedException,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { timingSafeEqual, randomBytes } from 'crypto';
@@ -29,7 +40,10 @@ function safeEqual(a: string, b: string) {
 
 @Controller('payments')
 export class PaymentsController {
-  constructor(private prisma: PrismaService, private notifications: NotificationsService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   /**
    * Pilot: the assigned driver records a CASH payment after the trip is completed.
@@ -42,20 +56,40 @@ export class PaymentsController {
     const b = await this.prisma.booking.findUnique({ where: { id: dto.bookingId } });
     if (!b) throw new NotFoundException('Booking not found');
     if (b.assignedDriverId !== user.id) throw new ForbiddenException();
-    if (b.state !== 'COMPLETED') throw new BadRequestException('Payment can only be recorded for a completed booking');
+    if (b.state !== 'COMPLETED')
+      throw new BadRequestException('Payment can only be recorded for a completed booking');
 
     const tip = dto.tip ?? 0;
     try {
       const p = await this.prisma.payment.create({
         data: {
-          bookingId: b.id, method: 'CASH', state: 'PAID',
-          serviceCharge: b.quote, itemCost: 0, platformFee: 0, tip,
+          bookingId: b.id,
+          method: 'CASH',
+          state: 'PAID',
+          serviceCharge: b.quote,
+          itemCost: 0,
+          platformFee: 0,
+          tip,
           total: b.quote + tip,
-          receiptNumber: receiptNumber(), paidAt: new Date(),
+          receiptNumber: receiptNumber(),
+          paidAt: new Date(),
         },
       });
-      await this.prisma.bookingEvent.create({ data: { bookingId: b.id, type: 'PAYMENT_RECORDED', actorId: user.id, metadata: { paymentId: p.id, method: 'CASH', total: p.total } } });
-      await this.notifications.notify(b.customerId, 'PAYMENT_RECORDED', 'Receipt available', `Cash payment of KES ${p.total} recorded.`, { bookingId: b.id });
+      await this.prisma.bookingEvent.create({
+        data: {
+          bookingId: b.id,
+          type: 'PAYMENT_RECORDED',
+          actorId: user.id,
+          metadata: { paymentId: p.id, method: 'CASH', total: p.total },
+        },
+      });
+      await this.notifications.notify(
+        b.customerId,
+        'PAYMENT_RECORDED',
+        'Receipt available',
+        `Cash payment of KES ${p.total} recorded.`,
+        { bookingId: b.id },
+      );
       return p;
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
@@ -66,8 +100,14 @@ export class PaymentsController {
   }
 
   @Get('booking/:bookingId')
-  async forBooking(@CurrentUser() user: AuthUser, @Param('bookingId', ParseUUIDPipe) bookingId: string) {
-    const b = await this.prisma.booking.findUnique({ where: { id: bookingId }, include: { payment: true } });
+  async forBooking(
+    @CurrentUser() user: AuthUser,
+    @Param('bookingId', ParseUUIDPipe) bookingId: string,
+  ) {
+    const b = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { payment: true },
+    });
     if (!b) throw new NotFoundException();
     if (b.customerId !== user.id && b.assignedDriverId !== user.id) throw new ForbiddenException();
     return b.payment;
@@ -77,7 +117,9 @@ export class PaymentsController {
   @Roles('CUSTOMER')
   @Post('mpesa/initiate')
   initiate(): never {
-    throw new NotImplementedException('M-Pesa payments are not enabled in this release. Use cash for the pilot.');
+    throw new NotImplementedException(
+      'M-Pesa payments are not enabled in this release. Use cash for the pilot.',
+    );
   }
 
   /**
@@ -113,7 +155,12 @@ export class PaymentsController {
     });
     if (res.count === 1) {
       await this.prisma.bookingEvent.create({
-        data: { bookingId: payment.bookingId, type: ok ? 'PAYMENT_CONFIRMED' : 'PAYMENT_FAILED', actorId: null, metadata: { paymentId: payment.id, provider: 'MPESA' } },
+        data: {
+          bookingId: payment.bookingId,
+          type: ok ? 'PAYMENT_CONFIRMED' : 'PAYMENT_FAILED',
+          actorId: null,
+          metadata: { paymentId: payment.id, provider: 'MPESA' },
+        },
       });
     }
     return { ResultCode: 0, ResultDesc: 'Accepted' };

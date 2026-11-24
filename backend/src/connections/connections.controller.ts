@@ -1,4 +1,13 @@
-import { BadRequestException, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, Post } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Delete,
+  ForbiddenException,
+  Get,
+  NotFoundException,
+  Param,
+  Post,
+} from '@nestjs/common';
 import { AuthUser, CurrentUser, Roles } from '../common/decorators';
 import { orderPair } from '../common/geo';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -10,9 +19,16 @@ const driverCard = {
     name: true,
     driverProfile: {
       select: {
-        photoUrl: true, serviceArea: true, availability: true, verificationStatus: true,
-        shareApproxLocation: true, shareCode: true,
-        vehicles: { where: { active: true }, select: { plate: true, type: true, make: true, model: true, color: true } },
+        photoUrl: true,
+        serviceArea: true,
+        availability: true,
+        verificationStatus: true,
+        shareApproxLocation: true,
+        shareCode: true,
+        vehicles: {
+          where: { active: true },
+          select: { plate: true, type: true, make: true, model: true, color: true },
+        },
       },
     },
   },
@@ -20,7 +36,10 @@ const driverCard = {
 
 @Controller('connections')
 export class ConnectionsController {
-  constructor(private prisma: PrismaService, private notifications: NotificationsService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   // ===================== customer <-> driver =====================
 
@@ -28,15 +47,19 @@ export class ConnectionsController {
   @Roles('CUSTOMER')
   @Post('customer/connect/:shareCode')
   async connect(@CurrentUser() user: AuthUser, @Param('shareCode') shareCode: string) {
-    const profile = await this.prisma.driverProfile.findUnique({ where: { shareCode: shareCode.toUpperCase() } });
-    if (!profile || profile.verificationStatus !== 'APPROVED') throw new NotFoundException('Driver not found');
+    const profile = await this.prisma.driverProfile.findUnique({
+      where: { shareCode: shareCode.toUpperCase() },
+    });
+    if (!profile || profile.verificationStatus !== 'APPROVED')
+      throw new NotFoundException('Driver not found');
     if (profile.userId === user.id) throw new BadRequestException('You cannot connect to yourself');
 
     const existing = await this.prisma.customerDriverConnection.findUnique({
       where: { customerId_driverId: { customerId: user.id, driverId: profile.userId } },
     });
     // A driver-side block can never be undone by the customer.
-    if (existing?.status === 'BLOCKED') throw new ForbiddenException('This connection is not available');
+    if (existing?.status === 'BLOCKED')
+      throw new ForbiddenException('This connection is not available');
     if (existing?.status === 'ACTIVE') return existing;
 
     const status = profile.requireConnectionApproval ? 'PENDING' : 'ACTIVE';
@@ -46,7 +69,12 @@ export class ConnectionsController {
       create: { customerId: user.id, driverId: profile.userId, status },
     });
     if (status === 'PENDING') {
-      await this.notifications.notify(profile.userId, 'CONNECTION_REQUEST', 'New connection request', 'A customer wants to add you as a trusted driver.');
+      await this.notifications.notify(
+        profile.userId,
+        'CONNECTION_REQUEST',
+        'New connection request',
+        'A customer wants to add you as a trusted driver.',
+      );
     }
     return conn;
   }
@@ -103,7 +131,12 @@ export class ConnectionsController {
       data: { status: 'ACTIVE' },
     });
     if (r.count === 0) throw new NotFoundException('No pending request');
-    await this.notifications.notify(customerId, 'CONNECTION_APPROVED', 'Connection approved', 'You can now book your trusted driver.');
+    await this.notifications.notify(
+      customerId,
+      'CONNECTION_APPROVED',
+      'Connection approved',
+      'You can now book your trusted driver.',
+    );
     return { ok: true };
   }
 
@@ -133,18 +166,27 @@ export class ConnectionsController {
   @Roles('DRIVER')
   @Post('drivers/request/:shareCode')
   async requestPeer(@CurrentUser() user: AuthUser, @Param('shareCode') shareCode: string) {
-    const peer = await this.prisma.driverProfile.findUnique({ where: { shareCode: shareCode.toUpperCase() } });
+    const peer = await this.prisma.driverProfile.findUnique({
+      where: { shareCode: shareCode.toUpperCase() },
+    });
     if (!peer) throw new NotFoundException('Driver not found');
     if (peer.userId === user.id) throw new BadRequestException('You cannot connect to yourself');
     const [a, b] = orderPair(user.id, peer.userId);
-    const existing = await this.prisma.driverConnection.findUnique({ where: { driverAId_driverBId: { driverAId: a, driverBId: b } } });
+    const existing = await this.prisma.driverConnection.findUnique({
+      where: { driverAId_driverBId: { driverAId: a, driverBId: b } },
+    });
     if (existing && existing.trustStatus !== 'REVOKED') return existing;
     const link = await this.prisma.driverConnection.upsert({
       where: { driverAId_driverBId: { driverAId: a, driverBId: b } },
       update: { trustStatus: 'PENDING', requestedBy: user.id },
       create: { driverAId: a, driverBId: b, requestedBy: user.id, trustStatus: 'PENDING' },
     });
-    await this.notifications.notify(peer.userId, 'PEER_REQUEST', 'Trusted driver request', 'A fellow driver wants to add you to their trusted network.');
+    await this.notifications.notify(
+      peer.userId,
+      'PEER_REQUEST',
+      'Trusted driver request',
+      'A fellow driver wants to add you to their trusted network.',
+    );
     return link;
   }
 
@@ -152,7 +194,10 @@ export class ConnectionsController {
   @Get('drivers')
   async peers(@CurrentUser() user: AuthUser) {
     const links = await this.prisma.driverConnection.findMany({
-      where: { OR: [{ driverAId: user.id }, { driverBId: user.id }], trustStatus: { in: ['PENDING', 'TRUSTED'] } },
+      where: {
+        OR: [{ driverAId: user.id }, { driverBId: user.id }],
+        trustStatus: { in: ['PENDING', 'TRUSTED'] },
+      },
       include: { driverA: driverCard, driverB: driverCard },
     });
     return links.map((l) => ({
@@ -167,10 +212,21 @@ export class ConnectionsController {
   @Post('drivers/:peerId/accept')
   async acceptPeer(@CurrentUser() user: AuthUser, @Param('peerId') peerId: string) {
     const [a, b] = orderPair(user.id, peerId);
-    const link = await this.prisma.driverConnection.findUnique({ where: { driverAId_driverBId: { driverAId: a, driverBId: b } } });
-    if (!link || link.trustStatus !== 'PENDING' || link.requestedBy === user.id) throw new NotFoundException('No pending request');
-    await this.prisma.driverConnection.update({ where: { id: link.id }, data: { trustStatus: 'TRUSTED' } });
-    await this.notifications.notify(peerId, 'PEER_ACCEPTED', 'Trusted driver added', 'Your trusted driver request was accepted.');
+    const link = await this.prisma.driverConnection.findUnique({
+      where: { driverAId_driverBId: { driverAId: a, driverBId: b } },
+    });
+    if (!link || link.trustStatus !== 'PENDING' || link.requestedBy === user.id)
+      throw new NotFoundException('No pending request');
+    await this.prisma.driverConnection.update({
+      where: { id: link.id },
+      data: { trustStatus: 'TRUSTED' },
+    });
+    await this.notifications.notify(
+      peerId,
+      'PEER_ACCEPTED',
+      'Trusted driver added',
+      'Your trusted driver request was accepted.',
+    );
     return { ok: true };
   }
 

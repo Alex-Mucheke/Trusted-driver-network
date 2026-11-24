@@ -14,6 +14,8 @@ export const ROLES_KEY = 'roles';
 /** Restricts a route to users holding at least one of the given roles. */
 export const Roles = (...roles: Role[]) => SetMetadata(ROLES_KEY, roles);
 
-export const CurrentUser = createParamDecorator((_data: unknown, ctx: ExecutionContext): AuthUser => {
-  return ctx.switchToHttp().getRequest().user;
-});
+export const CurrentUser = createParamDecorator(
+  (_data: unknown, ctx: ExecutionContext): AuthUser => {
+    return ctx.switchToHttp().getRequest().user;
+  },
+);

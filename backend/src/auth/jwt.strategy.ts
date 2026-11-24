@@ -10,7 +10,10 @@ export const COOKIE_NAME = 'tdn_session';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(config: ConfigService, private prisma: PrismaService) {
+  constructor(
+    config: ConfigService,
+    private prisma: PrismaService,
+  ) {
     super({
       // HttpOnly cookie first (browser sessions); bearer header for API clients / tests.
       jwtFromRequest: ExtractJwt.fromExtractors([

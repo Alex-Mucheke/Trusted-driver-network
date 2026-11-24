@@ -8,7 +8,8 @@ export function RequireRole({ role }: { role?: Role }) {
   const { user, loading } = useAuth();
   const loc = useLocation();
   if (loading) return <Spinner />;
-  if (!user) return <Navigate to={`/login?next=${encodeURIComponent(loc.pathname + loc.search)}`} replace />;
+  if (!user)
+    return <Navigate to={`/login?next=${encodeURIComponent(loc.pathname + loc.search)}`} replace />;
   if (role && !user.roles.includes(role)) return <Navigate to={homePathFor(user.roles)} replace />;
   return <Outlet />;
 }

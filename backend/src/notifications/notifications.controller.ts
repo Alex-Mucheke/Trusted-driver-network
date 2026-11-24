@@ -17,13 +17,19 @@ export class NotificationsController {
 
   @Post(':id/read')
   async markRead(@CurrentUser() user: AuthUser, @Param('id') id: string) {
-    await this.prisma.notification.updateMany({ where: { id, userId: user.id, readAt: null }, data: { readAt: new Date() } });
+    await this.prisma.notification.updateMany({
+      where: { id, userId: user.id, readAt: null },
+      data: { readAt: new Date() },
+    });
     return { ok: true };
   }
 
   @Post('read-all')
   async markAllRead(@CurrentUser() user: AuthUser) {
-    await this.prisma.notification.updateMany({ where: { userId: user.id, readAt: null }, data: { readAt: new Date() } });
+    await this.prisma.notification.updateMany({
+      where: { userId: user.id, readAt: null },
+      data: { readAt: new Date() },
+    });
     return { ok: true };
   }
 }

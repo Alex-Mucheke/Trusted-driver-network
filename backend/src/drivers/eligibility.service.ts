@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { Prisma, ServiceType } from '@prisma/client';
 import { ACTIVE_JOB_STATES } from '../bookings/booking-state';
 
@@ -46,12 +51,19 @@ export class EligibilityService {
       select: { scheduledAt: true },
     });
     const busy = jobs.some((j) =>
-      j.scheduledAt ? Math.abs(j.scheduledAt.getTime() - t) < OVERLAP_WINDOW_MS : t - now < OVERLAP_WINDOW_MS,
+      j.scheduledAt
+        ? Math.abs(j.scheduledAt.getTime() - t) < OVERLAP_WINDOW_MS
+        : t - now < OVERLAP_WINDOW_MS,
     );
     if (busy) throw new ConflictException('Driver is already on another job');
   }
 
-  async isEligible(client: Prisma.TransactionClient, driverId: string, type: ServiceType, scheduledAt: Date | null) {
+  async isEligible(
+    client: Prisma.TransactionClient,
+    driverId: string,
+    type: ServiceType,
+    scheduledAt: Date | null,
+  ) {
     try {
       await this.assertEligible(client, driverId, type, scheduledAt);
       return true;
