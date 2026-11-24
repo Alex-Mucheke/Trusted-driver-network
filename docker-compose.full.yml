@@ -1,0 +1,44 @@
+# Full stack (database + API + web) in containers. Use together with the base file:
+#
+#   JWT_SECRET=... MPESA_CALLBACK_SECRET=... ADMIN_PASSWORD=... \
+#     docker compose -f docker-compose.yml -f docker-compose.full.yml up --build
+#
+# Then open http://localhost:8080 (API docs: http://localhost:8080/api/docs).
+# Seed demo data (optional):
+#   docker compose -f docker-compose.yml -f docker-compose.full.yml \
+#     exec -e SEED_DEMO=true api npx ts-node prisma/seed.ts
+#
+# Variables can also live in a .env file next to this file (Compose reads it automatically).
+
+services:
+  api:
+    build: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Local demo over plain http. Behind HTTPS set NODE_ENV=production (marks cookies Secure).
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/tdn?schema=public
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET to a long random string}
+      MPESA_CALLBACK_SECRET: ${MPESA_CALLBACK_SECRET:?Set MPESA_CALLBACK_SECRET}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD}
+      CORS_ORIGIN: http://localhost:8080
+      APP_URL: http://localhost:8080
+      COOKIE_SAMESITE: lax
+      # nginx sits in front of the API: trust one proxy hop so rate limits are per client, not global.
+      TRUST_PROXY: '1'
+    expose:
+      - '3000'
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        VITE_GOOGLE_MAPS_KEY: ${VITE_GOOGLE_MAPS_KEY:-}
+    depends_on:
+      - api
+    ports:
+      - '8080:80'

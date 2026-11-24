@@ -4,11 +4,22 @@ import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { COOKIE_NAME } from './auth/jwt.strategy';
 
+/** TRUST_PROXY: "true", a hop count like "1", or an Express trust-proxy value (IP/subnet list). */
+function parseTrustProxy(value: string): boolean | number | string {
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return /^\d+$/.test(value) ? Number(value) : value;
+}
+
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // Behind a reverse proxy (nginx, a load balancer) the client IP comes from X-Forwarded-For.
+  // Without this, rate limiting sees every user as the proxy's IP.
+  if (process.env.TRUST_PROXY) app.set('trust proxy', parseTrustProxy(process.env.TRUST_PROXY));
   app.setGlobalPrefix('api');
   app.use(helmet());
   app.use(cookieParser());
@@ -22,10 +33,10 @@ async function bootstrap() {
   app.enableShutdownHooks();
 
   // API docs at /api/docs. On by default outside production; set SWAGGER_ENABLED=true to expose in prod.
-  const swaggerEnabled =
-    process.env.SWAGGER_ENABLED != null
-      ? process.env.SWAGGER_ENABLED === 'true'
-      : process.env.NODE_ENV !== 'production';
+  const swaggerFlag = process.env.SWAGGER_ENABLED; // empty string counts as "not set"
+  const swaggerEnabled = swaggerFlag
+    ? swaggerFlag === 'true'
+    : process.env.NODE_ENV !== 'production';
   if (swaggerEnabled) {
     const config = new DocumentBuilder()
       .setTitle('Trusted Driver Network API')

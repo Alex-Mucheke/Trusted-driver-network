@@ -9,8 +9,8 @@
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format": "prettier --write . --ignore-path ../.prettierignore",
+    "format:check": "prettier --check . --ignore-path ../.prettierignore"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.51.0",
