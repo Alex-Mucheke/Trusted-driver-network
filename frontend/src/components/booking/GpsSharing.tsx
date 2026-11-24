@@ -43,7 +43,7 @@ export function GpsSharing({ bookingId }: { bookingId: string }) {
   }
 
   // Always stop when leaving the screen / the booking ends.
-  useEffect(() => stop, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => stop, []);  
 
   return (
     <section className="card space-y-2">

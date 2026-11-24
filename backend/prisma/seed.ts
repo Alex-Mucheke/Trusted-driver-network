@@ -49,7 +49,7 @@ async function main() {
     create: { driverAId: x, driverBId: y, requestedBy: a.id, trustStatus: 'TRUSTED' },
   });
 
-  // eslint-disable-next-line no-console
+   
   console.log('Seeded. Demo logins (password Password123!): customer@example.com, alice@example.com, bob@example.com');
 }
 
