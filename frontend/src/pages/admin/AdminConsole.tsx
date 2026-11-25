@@ -13,7 +13,15 @@ import {
 } from '../../components/ui';
 import type { BookingState, ReferralState } from '../../lib/types';
 
-type Tab = 'overview' | 'verification' | 'users' | 'bookings' | 'referrals' | 'reports' | 'audit';
+type Tab =
+  | 'overview'
+  | 'verification'
+  | 'users'
+  | 'bookings'
+  | 'referrals'
+  | 'reports'
+  | 'privacy'
+  | 'audit';
 const TABS: [Tab, string][] = [
   ['overview', 'Overview'],
   ['verification', 'Verification'],
@@ -21,6 +29,7 @@ const TABS: [Tab, string][] = [
   ['bookings', 'Bookings'],
   ['referrals', 'Referrals'],
   ['reports', 'Reports'],
+  ['privacy', 'Privacy requests'],
   ['audit', 'Audit log'],
 ];
 
@@ -48,6 +57,7 @@ export default function AdminConsole() {
       {tab === 'bookings' && <Bookings />}
       {tab === 'referrals' && <Referrals />}
       {tab === 'reports' && <Reports />}
+      {tab === 'privacy' && <PrivacyRequests />}
       {tab === 'audit' && <Audit />}
     </div>
   );
@@ -166,6 +176,7 @@ interface U {
   phone: string;
   roles: string[];
   status: 'ACTIVE' | 'SUSPENDED';
+  deletedAt: string | null;
 }
 function Users() {
   const qc = useQueryClient();
@@ -179,6 +190,10 @@ function Users() {
       patch(`/admin/users/${v.id}/status`, { status: v.status, reason: v.reason }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'users'] }),
   });
+  const erase = useMutation({
+    mutationFn: (id: string) => post(`/admin/users/${id}/erase`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin'] }),
+  });
   return (
     <div className="space-y-3">
       <input
@@ -187,7 +202,7 @@ function Users() {
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
-      <ErrorBox error={q.error ?? set.error} />
+      <ErrorBox error={q.error ?? set.error ?? erase.error} />
       {q.isLoading ? (
         <Spinner />
       ) : (
@@ -202,23 +217,45 @@ function Users() {
                   {u.email} · {u.phone}
                 </p>
               </div>
-              {u.status === 'ACTIVE' ? (
-                <button
-                  className="btn-secondary"
-                  onClick={() => {
-                    const reason = prompt('Reason for suspension');
-                    if (reason) set.mutate({ id: u.id, status: 'SUSPENDED', reason });
-                  }}
-                >
-                  Suspend
-                </button>
+              {u.deletedAt ? (
+                <Badge>erased</Badge>
               ) : (
-                <button
-                  className="btn-primary"
-                  onClick={() => set.mutate({ id: u.id, status: 'ACTIVE' })}
-                >
-                  Reinstate
-                </button>
+                <div className="flex gap-2">
+                  {u.status === 'ACTIVE' ? (
+                    <button
+                      className="btn-secondary"
+                      onClick={() => {
+                        const reason = prompt('Reason for suspension');
+                        if (reason) set.mutate({ id: u.id, status: 'SUSPENDED', reason });
+                      }}
+                    >
+                      Suspend
+                    </button>
+                  ) : (
+                    <button
+                      className="btn-primary"
+                      onClick={() => set.mutate({ id: u.id, status: 'ACTIVE' })}
+                    >
+                      Reinstate
+                    </button>
+                  )}
+                  {!u.roles.includes('ADMIN') && (
+                    <button
+                      className="btn-danger"
+                      onClick={() => {
+                        if (
+                          confirm(
+                            `Permanently erase ${u.name}? Personal data is anonymised and this cannot be undone.`,
+                          )
+                        ) {
+                          erase.mutate(u.id);
+                        }
+                      }}
+                    >
+                      Erase
+                    </button>
+                  )}
+                </div>
               )}
             </li>
           ))}
@@ -382,6 +419,79 @@ function Reports() {
         </li>
       ))}
       {q.data?.length === 0 && <Empty title="No reports" />}
+    </ul>
+  );
+}
+
+interface DR {
+  id: string;
+  type: string;
+  status: 'OPEN' | 'COMPLETED' | 'REJECTED';
+  note: string | null;
+  resolution: string | null;
+  requestedAt: string;
+  dueAt: string;
+  overdue: boolean;
+  user: { name: string; email: string; phone: string };
+}
+/** Data-subject requests (access, correction, objection, restriction, erasure) and their 30-day clock. */
+function PrivacyRequests() {
+  const qc = useQueryClient();
+  const q = useQuery({
+    queryKey: ['admin', 'data-requests'],
+    queryFn: () => get<DR[]>('/admin/data-requests'),
+  });
+  const resolve = useMutation({
+    mutationFn: (v: { id: string; status: 'COMPLETED' | 'REJECTED'; resolution: string }) =>
+      patch(`/admin/data-requests/${v.id}`, { status: v.status, resolution: v.resolution }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin'] }),
+  });
+  if (q.isLoading) return <Spinner />;
+  return (
+    <ul className="space-y-2">
+      <ErrorBox error={q.error ?? resolve.error} />
+      {q.data?.map((r) => (
+        <li key={r.id} className="card space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="font-medium">
+              {r.type.toLowerCase()} · {r.user.name}
+            </span>
+            <Badge color={r.overdue ? 'red' : r.status === 'OPEN' ? 'amber' : 'green'}>
+              {r.overdue ? 'overdue' : r.status.toLowerCase()}
+            </Badge>
+          </div>
+          {r.note && <p className="text-sm">{r.note}</p>}
+          <p className="text-xs text-slate-500">
+            {r.user.email} · asked {when(r.requestedAt)} · due {when(r.dueAt)}
+          </p>
+          {r.resolution && <p className="text-xs text-slate-600">{r.resolution}</p>}
+          {r.status === 'OPEN' && (
+            <div className="flex gap-2 pt-1">
+              <button
+                className="btn-primary"
+                onClick={() => {
+                  const n = prompt('What was done?');
+                  if (n && n.length >= 3)
+                    resolve.mutate({ id: r.id, status: 'COMPLETED', resolution: n });
+                }}
+              >
+                Complete
+              </button>
+              <button
+                className="btn-secondary"
+                onClick={() => {
+                  const n = prompt('Why is this being declined? (shown to the person)');
+                  if (n && n.length >= 3)
+                    resolve.mutate({ id: r.id, status: 'REJECTED', resolution: n });
+                }}
+              >
+                Decline
+              </button>
+            </div>
+          )}
+        </li>
+      ))}
+      {q.data?.length === 0 && <Empty title="No privacy requests" />}
     </ul>
   );
 }

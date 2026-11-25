@@ -92,6 +92,8 @@ export function Register() {
     params.get('role') === 'DRIVER' ? 'DRIVER' : 'CUSTOMER',
   );
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '' });
+  const [acceptedNotice, setAcceptedNotice] = useState(false);
+  const [driverConsent, setDriverConsent] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
   const next = params.get('next');
@@ -105,7 +107,12 @@ export function Register() {
     setBusy(true);
     setError(null);
     try {
-      const u = await register({ ...form, role });
+      const u = await register({
+        ...form,
+        role,
+        acceptPrivacyNotice: acceptedNotice,
+        ...(role === 'DRIVER' ? { consentDriverVerification: driverConsent } : {}),
+      });
       nav(next && next.startsWith('/') ? next : homePathFor(u.roles), { replace: true });
     } catch (err) {
       setError(err);
@@ -179,6 +186,41 @@ export function Register() {
             before going online.
           </p>
         )}
+        {role === 'DRIVER' && (
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="mt-1"
+              required
+              checked={driverConsent}
+              onChange={(e) => setDriverConsent(e.target.checked)}
+            />
+            <span>
+              I consent to the verification of my identity, driving licence and vehicle documents.
+            </span>
+          </label>
+        )}
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1"
+            required
+            checked={acceptedNotice}
+            onChange={(e) => setAcceptedNotice(e.target.checked)}
+          />
+          <span>
+            I have read the{' '}
+            <a
+              className="text-brand-700 underline"
+              href="/privacy"
+              target="_blank"
+              rel="noreferrer"
+            >
+              privacy notice
+            </a>
+            .
+          </span>
+        </label>
         <ErrorBox error={error} />
         <button className="btn-primary w-full" disabled={busy}>
           {busy ? 'Creating…' : 'Create account'}

@@ -16,7 +16,8 @@
     "test": "jest",
     "lint": "eslint .",
     "format": "prettier --write . --ignore-path ../.prettierignore",
-    "format:check": "prettier --check . --ignore-path ../.prettierignore"
+    "format:check": "prettier --check . --ignore-path ../.prettierignore",
+    "test:int": "jest --config jest.int.config.js --runInBand"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.0",
@@ -36,8 +37,11 @@
     "class-validator": "^0.14.1",
     "cookie-parser": "^1.4.6",
     "helmet": "^7.1.0",
+    "nestjs-pino": "^4.6.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
+    "pino": "^9.14.0",
+    "pino-http": "^10.5.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "socket.io": "^4.7.5"
@@ -75,7 +79,12 @@
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
-      "^.+\\.ts$": "ts-jest"
+      "^.+\\.ts$": [
+        "ts-jest",
+        {
+          "isolatedModules": true
+        }
+      ]
     },
     "testEnvironment": "node"
   }

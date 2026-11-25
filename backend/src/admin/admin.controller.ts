@@ -11,10 +11,11 @@ import {
   Query,
 } from '@nestjs/common';
 import { Prisma, ReportStatus } from '@prisma/client';
-import { IsEnum, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsEnum, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { AuthUser, CurrentUser, Roles } from '../common/decorators';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { PrivacyService } from '../privacy/privacy.service';
 
 class VerifyDto {
   @IsIn(['APPROVED', 'REJECTED']) decision: 'APPROVED' | 'REJECTED';
@@ -23,6 +24,10 @@ class VerifyDto {
 class UserStatusDto {
   @IsIn(['ACTIVE', 'SUSPENDED']) status: 'ACTIVE' | 'SUSPENDED';
   @IsOptional() @IsString() @MaxLength(500) reason?: string;
+}
+class DataRequestUpdateDto {
+  @IsIn(['COMPLETED', 'REJECTED']) status: 'COMPLETED' | 'REJECTED';
+  @IsString() @MinLength(3) @MaxLength(2000) resolution: string;
 }
 class ReportUpdateDto {
   @IsEnum(ReportStatus) status: ReportStatus;
@@ -35,6 +40,7 @@ export class AdminController {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private privacy: PrivacyService,
   ) {}
 
   private audit(
@@ -135,6 +141,7 @@ export class AdminController {
         phone: true,
         roles: true,
         status: true,
+        deletedAt: true,
         createdAt: true,
       },
       orderBy: { createdAt: 'desc' },
@@ -149,6 +156,12 @@ export class AdminController {
     @Body() dto: UserStatusDto,
   ) {
     if (id === admin.id) throw new BadRequestException('You cannot change your own status');
+    const target = await this.prisma.user.findUnique({
+      where: { id },
+      select: { deletedAt: true },
+    });
+    if (!target) throw new NotFoundException('User not found');
+    if (target.deletedAt) throw new BadRequestException('This account has been erased');
     const u = await this.prisma.user.update({
       where: { id },
       data: { status: dto.status },
@@ -162,6 +175,50 @@ export class AdminController {
     }
     await this.audit(admin.id, `USER_${dto.status}`, 'User', id, { reason: dto.reason });
     return u;
+  }
+
+  // ---------------- data-subject requests ----------------
+
+  /** Open requests first, oldest due date first; `overdue` flags anything past its 30-day target. */
+  @Get('data-requests')
+  async dataRequests(@Query('status') status?: string) {
+    const rows = await this.prisma.dataRequest.findMany({
+      where: status ? { status: status as 'OPEN' | 'COMPLETED' | 'REJECTED' } : {},
+      include: { user: { select: { id: true, name: true, email: true, phone: true } } },
+      orderBy: [{ status: 'asc' }, { dueAt: 'asc' }],
+      take: 200,
+    });
+    const now = Date.now();
+    return rows.map((r) => ({
+      ...r,
+      overdue: r.status === 'OPEN' && r.dueAt.getTime() < now,
+    }));
+  }
+
+  @Patch('data-requests/:id')
+  async resolveDataRequest(
+    @CurrentUser() admin: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: DataRequestUpdateDto,
+  ) {
+    const res = await this.prisma.dataRequest.updateMany({
+      where: { id, status: 'OPEN' },
+      data: { status: dto.status, resolution: dto.resolution, completedAt: new Date() },
+    });
+    if (res.count === 0) throw new NotFoundException('Open request not found');
+    await this.audit(admin.id, `DATA_REQUEST_${dto.status}`, 'DataRequest', id, {
+      resolution: dto.resolution,
+    });
+    return this.prisma.dataRequest.findUnique({ where: { id } });
+  }
+
+  /** Erasure on a user's behalf (for example a request received by email). */
+  @Post('users/:id/erase')
+  async eraseUser(@CurrentUser() admin: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    if (id === admin.id) throw new BadRequestException('You cannot erase your own account here');
+    const result = await this.privacy.anonymise(id, 'ADMIN');
+    await this.audit(admin.id, 'USER_ERASED', 'User', id);
+    return result;
   }
 
   // ---------------- oversight ----------------

@@ -6,6 +6,7 @@ import { homePathFor, useAuth } from './lib/auth';
 import Landing from './pages/Landing';
 import { Login, Register } from './pages/AuthPages';
 import PublicDriver from './pages/PublicDriver';
+import Privacy from './pages/Privacy';
 import Settings from './pages/Settings';
 import BookingDetail from './pages/BookingDetail';
 import CustomerHome from './pages/customer/CustomerHome';
@@ -34,6 +35,7 @@ export default function App() {
       <Route element={<Shell />}>
         {/* Shareable driver link / QR target; works signed-out too. */}
         <Route path="/d/:code" element={<PublicDriver />} />
+        <Route path="/privacy" element={<Privacy />} />
 
         <Route element={<RequireRole role="CUSTOMER" />}>
           <Route path="/app" element={<CustomerHome />} />

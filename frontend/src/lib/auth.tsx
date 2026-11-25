@@ -13,6 +13,8 @@ interface AuthState {
     phone: string;
     password: string;
     role: 'CUSTOMER' | 'DRIVER';
+    acceptPrivacyNotice: boolean;
+    consentDriverVerification?: boolean;
   }) => Promise<User>;
   logout: () => Promise<void>;
 }

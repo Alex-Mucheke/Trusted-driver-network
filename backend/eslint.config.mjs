@@ -19,4 +19,9 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // Test doubles are deliberately loose.
+    files: ['**/*.spec.ts', '**/*.int-spec.ts'],
+    rules: { '@typescript-eslint/no-explicit-any': 'off' },
+  },
 );

@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { COOKIE_NAME } from './auth/jwt.strategy';
 
@@ -16,7 +17,9 @@ function parseTrustProxy(value: string): boolean | number | string {
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
+  const logger = app.get(Logger);
+  app.useLogger(logger);
   // Behind a reverse proxy (nginx, a load balancer) the client IP comes from X-Forwarded-For.
   // Without this, rate limiting sees every user as the proxy's IP.
   if (process.env.TRUST_PROXY) app.set('trust proxy', parseTrustProxy(process.env.TRUST_PROXY));
@@ -52,6 +55,11 @@ async function bootstrap() {
   const port = Number(process.env.PORT ?? 3000);
   await app.listen(port);
 
-  console.log(`Trusted Driver Network API listening on :${port}`);
+  logger.log(`Trusted Driver Network API listening on :${port}`);
 }
-bootstrap();
+
+bootstrap().catch((err: unknown) => {
+  // Logger may not exist yet (e.g. invalid configuration), so write plainly and exit non-zero.
+  console.error(err instanceof Error ? err.message : err);
+  process.exit(1);
+});

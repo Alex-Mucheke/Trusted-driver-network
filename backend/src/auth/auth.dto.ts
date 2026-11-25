@@ -1,4 +1,14 @@
-import { IsEmail, IsIn, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import {
+  Equals,
+  IsBoolean,
+  IsEmail,
+  IsIn,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 export class RegisterDto {
   @IsString()
@@ -20,6 +30,15 @@ export class RegisterDto {
 
   @IsIn(['CUSTOMER', 'DRIVER'])
   role: 'CUSTOMER' | 'DRIVER';
+
+  /** The person has read the privacy notice. Recorded with the notice version. */
+  @Equals(true, { message: 'You must acknowledge the privacy notice to register' })
+  acceptPrivacyNotice: boolean;
+
+  /** Drivers only: consent to verification of identity, licence and vehicle documents. */
+  @IsOptional()
+  @IsBoolean()
+  consentDriverVerification?: boolean;
 }
 
 export class LoginDto {

@@ -4,18 +4,8 @@ import { Response } from 'express';
 import { CurrentUser, AuthUser, Public } from '../common/decorators';
 import { LoginDto, RegisterDto } from './auth.dto';
 import { AuthService } from './auth.service';
+import { clearCookieOptions, cookieOptions } from './cookie';
 import { COOKIE_NAME } from './jwt.strategy';
-
-function cookieOptions() {
-  const sameSite = (process.env.COOKIE_SAMESITE ?? 'lax') as 'lax' | 'strict' | 'none';
-  return {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production' || sameSite === 'none',
-    sameSite,
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    path: '/',
-  };
-}
 
 @Controller('auth')
 export class AuthController {
@@ -44,8 +34,7 @@ export class AuthController {
   @HttpCode(204)
   @Post('logout')
   logout(@Res({ passthrough: true }) res: Response) {
-    const { maxAge: _maxAge, ...opts } = cookieOptions();
-    res.clearCookie(COOKIE_NAME, opts);
+    res.clearCookie(COOKIE_NAME, clearCookieOptions());
   }
 
   @Get('me')

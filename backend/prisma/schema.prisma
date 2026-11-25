@@ -123,6 +123,25 @@ enum ReportStatus {
   DISMISSED
 }
 
+enum ConsentType {
+  PRIVACY_NOTICE
+  DRIVER_VERIFICATION
+}
+
+enum DataRequestType {
+  ACCESS
+  ERASURE
+  CORRECTION
+  OBJECTION
+  RESTRICTION
+}
+
+enum DataRequestStatus {
+  OPEN
+  COMPLETED
+  REJECTED
+}
+
 enum SubscriptionState {
   TRIAL
   ACTIVE
@@ -141,6 +160,9 @@ model User {
   roles             Role[]
   status            UserStatus @default(ACTIVE)
   notificationPrefs Json?
+  // Set when the account has been erased: personal fields are anonymised, the row is kept so
+  // retained financial/safety records still resolve.
+  deletedAt         DateTime?
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
@@ -164,6 +186,8 @@ model User {
   reportsAgainst            Report[]                   @relation("ReportTarget")
   subscriptions             Subscription[]
   auditLogs                 AdminAuditLog[]
+  consents                  ConsentRecord[]
+  dataRequests              DataRequest[]
 }
 
 model DriverProfile {
@@ -515,4 +539,37 @@ model AdminAuditLog {
   createdAt  DateTime @default(now())
 
   @@index([createdAt])
+}
+
+// ------------------------------ Privacy ------------------------------
+
+// One row per consent / notice acknowledgement. Withdrawal sets withdrawnAt (history is kept).
+model ConsentRecord {
+  id          String      @id @default(uuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        ConsentType
+  // Version of the notice text that was shown (see src/privacy/policy.ts).
+  version     String
+  grantedAt   DateTime    @default(now())
+  withdrawnAt DateTime?
+
+  @@index([userId, type])
+}
+
+// Log of data-subject requests (access, erasure, correction, ...) with a due date for follow-up.
+model DataRequest {
+  id          String            @id @default(uuid())
+  userId      String
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        DataRequestType
+  status      DataRequestStatus @default(OPEN)
+  note        String?
+  resolution  String?
+  requestedAt DateTime          @default(now())
+  dueAt       DateTime
+  completedAt DateTime?
+
+  @@index([status, dueAt])
+  @@index([userId])
 }

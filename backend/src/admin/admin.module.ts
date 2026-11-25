@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
+import { PrivacyModule } from '../privacy/privacy.module';
 import { AdminController } from './admin.controller';
 
-@Module({ controllers: [AdminController] })
+@Module({ imports: [PrivacyModule], controllers: [AdminController] })
 export class AdminModule {}

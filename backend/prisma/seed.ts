@@ -41,6 +41,17 @@ async function verifiedDriver(
 }
 
 async function main() {
+  // The demo accounts share a published password; they must never exist in a real deployment.
+  if (process.env.NODE_ENV === 'production' && process.env.SEED_DEMO === 'true') {
+    throw new Error('Refusing to seed demo accounts with NODE_ENV=production (unset SEED_DEMO).');
+  }
+  if (
+    process.env.NODE_ENV === 'production' &&
+    (!process.env.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD.length < 12)
+  ) {
+    throw new Error('Set ADMIN_PASSWORD (12+ characters) before seeding in production.');
+  }
+
   await user(
     'Platform Admin',
     process.env.ADMIN_EMAIL ?? 'admin@example.com',

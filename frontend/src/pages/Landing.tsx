@@ -58,6 +58,11 @@ export default function Landing() {
           </li>
         ))}
       </ol>
+      <p className="mt-10 text-center text-xs text-slate-500">
+        <Link className="underline" to="/privacy">
+          Privacy notice
+        </Link>
+      </p>
     </div>
   );
 }

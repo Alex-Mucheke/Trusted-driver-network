@@ -1,8 +1,14 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Prisma, Role } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
+import { PRIVACY_NOTICE_VERSION } from '../privacy/policy';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto, RegisterDto } from './auth.dto';
 
@@ -32,6 +38,11 @@ export class AuthService {
   async register(dto: RegisterDto) {
     const passwordHash = await bcrypt.hash(dto.password, 12);
     const role: Role = dto.role === 'DRIVER' ? 'DRIVER' : 'CUSTOMER';
+    if (role === 'DRIVER' && dto.consentDriverVerification !== true) {
+      throw new BadRequestException(
+        'Drivers must consent to verification of their identity, licence and vehicle documents',
+      );
+    }
     try {
       const user = await this.prisma.user.create({
         data: {
@@ -40,6 +51,14 @@ export class AuthService {
           phone: dto.phone,
           passwordHash,
           roles: [role],
+          consents: {
+            create: [
+              { type: 'PRIVACY_NOTICE', version: PRIVACY_NOTICE_VERSION },
+              ...(role === 'DRIVER'
+                ? [{ type: 'DRIVER_VERIFICATION' as const, version: PRIVACY_NOTICE_VERSION }]
+                : []),
+            ],
+          },
           ...(role === 'DRIVER'
             ? {
                 driverProfile: {
@@ -67,7 +86,7 @@ export class AuthService {
     const row = await this.prisma.user.findUnique({ where: { email: dto.email.toLowerCase() } });
     // Same error for unknown user / wrong password to avoid account enumeration.
     const ok = row ? await bcrypt.compare(dto.password, row.passwordHash) : false;
-    if (!row || !ok) throw new UnauthorizedException('Invalid email or password');
+    if (!row || !ok || row.deletedAt) throw new UnauthorizedException('Invalid email or password');
     if (row.status !== 'ACTIVE') throw new UnauthorizedException('Account suspended');
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: row.id },
