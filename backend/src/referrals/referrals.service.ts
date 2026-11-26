@@ -8,12 +8,40 @@ import {
 import { Interval } from '@nestjs/schedule';
 import { Prisma } from '@prisma/client';
 import { BookingsService } from '../bookings/bookings.service';
-import { orderPair } from '../common/geo';
+import { approximate, orderPair } from '../common/geo';
 import { EligibilityService } from '../drivers/eligibility.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 const OPEN = ['PROPOSED', 'CANDIDATE_ACCEPTED'] as const;
+
+export const ADDRESS_WITHHELD = 'Shown once the customer approves you';
+
+interface RideLike {
+  pickupAddress: string;
+  dropoffAddress: string;
+  pickupLat: number;
+  pickupLng: number;
+  dropoffLat: number;
+  dropoffLng: number;
+}
+
+/**
+ * Data minimisation: a referred driver may decline, and the customer has not approved them yet,
+ * so they see only an approximate area (~1 km) and the distance, never the exact addresses. The
+ * exact details are released through the normal booking view once the customer approves.
+ */
+export function withholdExactLocation<T extends RideLike>(ride: T): T {
+  return {
+    ...ride,
+    pickupAddress: ADDRESS_WITHHELD,
+    dropoffAddress: ADDRESS_WITHHELD,
+    pickupLat: approximate(ride.pickupLat),
+    pickupLng: approximate(ride.pickupLng),
+    dropoffLat: approximate(ride.dropoffLat),
+    dropoffLng: approximate(ride.dropoffLng),
+  };
+}
 const ttlMs = () => Number(process.env.REFERRAL_TTL_MINUTES ?? 10) * 60 * 1000;
 const maxAttempts = () => Number(process.env.MAX_REFERRAL_ATTEMPTS ?? 3);
 
@@ -162,8 +190,8 @@ export class ReferralsService {
 
   // -------------------------------------------------------------- candidate
 
-  incoming(candidateId: string) {
-    return this.prisma.referral.findMany({
+  async incoming(candidateId: string) {
+    const rows = await this.prisma.referral.findMany({
       where: { candidateId, state: 'PROPOSED', expiresAt: { gt: new Date() } },
       include: {
         proposer: { select: { id: true, name: true } },
@@ -179,6 +207,13 @@ export class ReferralsService {
       },
       orderBy: { createdAt: 'desc' },
     });
+    return rows.map((r) => ({
+      ...r,
+      booking: {
+        ...r.booking,
+        rideDetails: r.booking.rideDetails ? withholdExactLocation(r.booking.rideDetails) : null,
+      },
+    }));
   }
 
   async candidateRespond(

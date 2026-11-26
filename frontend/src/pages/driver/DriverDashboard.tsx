@@ -156,7 +156,8 @@ export default function DriverDashboard() {
               </p>
               {r.booking.rideDetails && (
                 <p className="text-sm text-slate-600">
-                  {r.booking.rideDetails.pickupAddress} → {r.booking.rideDetails.dropoffAddress}
+                  About {r.booking.rideDetails.distanceKm} km. Exact pickup and drop-off are shown
+                  once the customer approves you.
                 </p>
               )}
               <p className="text-xs text-slate-500">

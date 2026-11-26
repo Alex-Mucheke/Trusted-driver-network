@@ -63,7 +63,8 @@ The compose file runs the API with `NODE_ENV=development` because it serves plai
 
 - `GET /api/health` is a liveness probe; `GET /api/health/ready` also checks the database (use it for readiness).
 - Interactive API docs live at `/api/docs`. They are on by default outside production; set `SWAGGER_ENABLED=true` to expose them in production.
-- GitHub Actions runs on every PR: ESLint, Prettier check, typecheck, backend tests, both builds and both Docker images.
+- GitHub Actions runs on every PR: lint, format, typecheck, unit tests, a real-PostgreSQL integration suite, migration drift check, a fail-closed config check, a production-build boot with an end-to-end smoke test (`scripts/smoke-api.sh`), npm audit (fails on critical), gitleaks, and the full Docker stack smoke-tested through nginx.
+- Operations: see `docs/operations/runbook.md`; backups with `ops/backup.sh`, restore drill with `ops/restore-test.sh`.
 - Locally, in `backend/` or `frontend/`: `npm run lint`, `npm run format` (or `format:check`), and in `backend/` `npm run typecheck` and `npm test`.
 
 ## What is implemented (MVP scope from the guide)
@@ -77,6 +78,14 @@ The compose file runs the API with `NODE_ENV=development` because it serves plai
 - **Referral state machine** (`PROPOSED → CANDIDATE_ACCEPTED → CUSTOMER_APPROVED`, plus declined / rejected / expired / cancelled)
 - Live tracking over an authenticated socket, plus polling fallback; chat, notifications, reviews, reports, cash receipts
 - Admin console: stats, verification, users (suspend/reinstate), bookings + event timeline, referrals, reports, audit log
+
+## Privacy and compliance (Kenya Data Protection Act, 2019)
+
+- Registration requires accepting the privacy notice (**breaking API change:** `POST /auth/register` now needs `acceptPrivacyNotice: true`; drivers also need `consentDriverVerification: true`). Consent is stored with the notice version.
+- Users can download their data and delete their account (anonymisation) in Settings; other rights requests go to an admin queue with a 30-day clock.
+- Daily retention job; referral offers show distance only until the customer approves the candidate.
+- Production config is validated at startup; logs are structured and free of PII.
+- Drafts for counsel: `docs/compliance/` (RoPA, DPIA, retention, breach response, requests runbook, registration checklist). **Not legal advice and not yet reviewed.**
 
 ## Rules enforced on the server
 
@@ -101,4 +110,4 @@ The compose file runs the API with `NODE_ENV=development` because it serves plai
 
 ## Tests
 
-`cd backend && npm test` runs the booking state-machine unit tests.
+`cd backend && npm test` runs the unit tests (mocked Prisma). `npm run test:int` runs the database integration suite against `DATABASE_URL` (CI runs it on a PostgreSQL service).

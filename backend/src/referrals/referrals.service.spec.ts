@@ -20,7 +20,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { makePrisma, MockPrisma } from '../testing/prisma-mock';
-import { ReferralsService } from './referrals.service';
+import { ADDRESS_WITHHELD, ReferralsService, withholdExactLocation } from './referrals.service';
 
 const BOOKING = 'b1';
 const PROPOSER = 'driver-a';
@@ -156,6 +156,54 @@ describe('ReferralsService', () => {
       await expect(service.propose(PROPOSER, BOOKING, CANDIDATE)).rejects.toBeInstanceOf(
         ConflictException,
       );
+    });
+  });
+
+  describe('incoming offers (data minimisation)', () => {
+    const exact = {
+      pickupAddress: '12 Market Road, Chuka',
+      dropoffAddress: '4 Hospital Lane, Chuka',
+      pickupLat: -0.333456,
+      pickupLng: 37.651234,
+      dropoffLat: -0.311111,
+      dropoffLng: 37.622222,
+      distanceKm: 3.2,
+    };
+
+    it('withholds exact addresses and coordinates but keeps the distance', () => {
+      const out = withholdExactLocation(exact);
+      expect(out.pickupAddress).toBe(ADDRESS_WITHHELD);
+      expect(out.dropoffAddress).toBe(ADDRESS_WITHHELD);
+      expect(out.pickupLat).toBe(-0.33);
+      expect(out.pickupLng).toBe(37.65);
+      expect(out.dropoffLat).toBe(-0.31);
+      expect(out.distanceKm).toBe(3.2);
+      expect(JSON.stringify(out)).not.toMatch(/Market Road|Hospital Lane|0\.333456|37\.651234/);
+    });
+
+    it('a candidate with a pending offer never receives the exact trip location', async () => {
+      prisma.referral.findMany.mockResolvedValue([
+        {
+          id: 'ref1',
+          proposer: { id: PROPOSER, name: 'Alice' },
+          booking: { id: BOOKING, quote: 400, rideDetails: exact },
+        },
+      ]);
+      const out: any[] = await service.incoming(CANDIDATE);
+      expect(out[0].booking.rideDetails.pickupAddress).toBe(ADDRESS_WITHHELD);
+      expect(JSON.stringify(out)).not.toMatch(/Market Road|Hospital Lane/);
+    });
+
+    it('copes with a booking that has no ride details', async () => {
+      prisma.referral.findMany.mockResolvedValue([
+        {
+          id: 'ref1',
+          proposer: { id: PROPOSER, name: 'Alice' },
+          booking: { id: BOOKING, rideDetails: null },
+        },
+      ]);
+      const out: any[] = await service.incoming(CANDIDATE);
+      expect(out[0].booking.rideDetails).toBeNull();
     });
   });
 
